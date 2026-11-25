@@ -1,0 +1,13 @@
+# Static configuration: which port Traefik listens on, and how it discovers services.
+entryPoints:
+  web:
+    address: ":80"
+
+# Traefik dashboard (local dev, no auth)
+api:
+  dashboard: true
+  insecure: true
+
+providers:
+  docker:
+    exposedByDefault: false   # bare containers are not exposed; only those with labels

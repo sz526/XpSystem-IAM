@@ -1,0 +1,6 @@
+@XpSystem.Api_HostAddress = http://localhost:5185
+
+GET {{XpSystem.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
