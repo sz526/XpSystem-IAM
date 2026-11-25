@@ -50,6 +50,10 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__Default=Host=db;Port=5432;Database=xpdb;Username=postgres;Password=mysecretpassword
+      - Keycloak__MetadataAddress=http://keycloak.localhost/realms/xpsystem/.well-known/openid-configuration
+      - Keycloak__Issuer=http://keycloak.localhost/realms/xpsystem
+      - Keycloak__Audience=xp-api
+
     ports:
       - "8080:8080"
     depends_on:

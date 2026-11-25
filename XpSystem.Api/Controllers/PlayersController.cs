@@ -1,11 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
 using XpSystem;
 using XpSystem.Api.Dtos;
+using Microsoft.AspNetCore.Authorization;
+
 
 namespace XpSystem.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
+
 public class PlayersController : ControllerBase
 {
     private readonly PlayerService _service;
