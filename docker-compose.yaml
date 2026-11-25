@@ -1,4 +1,29 @@
 services:
+  # ---------- Keycloak (Identity Provider) ----------
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    restart: always
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: keycloak.localhost
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+    ports:
+      - "8082:8080"          # 直连调试用；正常走 Traefik
+    networks:
+      default:
+        aliases:
+          - keycloak.localhost
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`keycloak.localhost`)"
+      - "traefik.http.routers.keycloak.entrypoints=web"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+
   # ---------- Traefik (Ingress / Reverse Proxy) ----------
   traefik:
     image: traefik:v3
@@ -14,6 +39,7 @@ services:
     depends_on:
       - api
       - pgadmin
+      - keycloak
 
   # ---------- API ----------
   api:
