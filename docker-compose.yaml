@@ -1,5 +1,6 @@
 services:
   # ---------- Keycloak (Identity Provider) ----------
+   # ---------- Keycloak (Identity Provider) ----------
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
     restart: always
@@ -7,17 +8,13 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-      KC_HOSTNAME: keycloak.localhost
+      KC_HOSTNAME: "http://keycloak.localhost"
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: xforwarded
     volumes:
       - ./keycloak:/opt/keycloak/data/import:ro
     ports:
-      - "8082:8080"          # 直连调试用；正常走 Traefik
-    networks:
-      default:
-        aliases:
-          - keycloak.localhost
+      - "8082:8080"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.keycloak.rule=Host(`keycloak.localhost`)"
@@ -27,7 +24,7 @@ services:
   # ---------- Traefik (Ingress / Reverse Proxy) ----------
   traefik:
     image: traefik:v3
-    restart: always
+    restart: always 
     ports:
       - "80:80"
       - "8081:8080"   # Traefik dashboard
@@ -50,9 +47,10 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__Default=Host=db;Port=5432;Database=xpdb;Username=postgres;Password=mysecretpassword
-      - Keycloak__MetadataAddress=http://keycloak.localhost/realms/xpsystem/.well-known/openid-configuration
+      - Keycloak__MetadataAddress=http://keycloak:8080/realms/xpsystem/.well-known/openid-configuration
       - Keycloak__Issuer=http://keycloak.localhost/realms/xpsystem
       - Keycloak__Audience=xp-api
+
 
     ports:
       - "8080:8080"

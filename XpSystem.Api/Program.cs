@@ -4,6 +4,8 @@ using XpSystem;
 using XpSystem.Api.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -34,7 +36,46 @@ builder.Services.AddAuthorization();
 builder.Services.AddHealthChecks();
 
 // OpenAPI document + Scalar UI
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options =>
+{
+    var issuer = keycloak["Issuer"]!;   // http://keycloak.localhost/realms/xpsystem
+
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+
+        document.Components.SecuritySchemes["oauth2"] = new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.OAuth2,
+            Flows = new OpenApiOAuthFlows
+            {
+                AuthorizationCode = new OpenApiOAuthFlow
+                {
+                    AuthorizationUrl = new Uri($"{issuer}/protocol/openid-connect/auth"),
+                    TokenUrl = new Uri($"{issuer}/protocol/openid-connect/token"),
+                    Scopes = new Dictionary<string, string>
+                    {
+                        ["openid"] = "OpenID Connect",
+                        ["profile"] = "User profile"
+                    }
+                }
+            }
+        };
+
+        // 让所有端点默认要求这个 scheme，Scalar 才会自动带 Authorization 头
+        document.Security =
+        [
+            new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("oauth2", document)] = ["openid", "profile"]
+            }
+        ];
+
+        return Task.CompletedTask;
+    });
+});
+
 
 // EF Core + PostgreSQL
 builder.Services.AddDbContext<XpSystemDbContext>(options =>
@@ -52,7 +93,20 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.MapOpenApi();            // OpenAPI 文档: /openapi/v1.json
-app.MapScalarApiReference(); // Scalar UI:    /scalar/v1
+//app.MapScalarApiReference(); // Scalar UI:    /scalar/v1
+app.MapScalarApiReference(options =>
+{
+    options
+        .WithTitle("XpSystem API")
+        .AddPreferredSecuritySchemes("oauth2")
+        .AddAuthorizationCodeFlow("oauth2", flow =>
+        {
+            flow.ClientId = "xp-api";
+            flow.Pkce = Pkce.Sha256;
+            flow.SelectedScopes = ["openid", "profile"];
+        });
+});
+
 
 app.UseAuthentication();
 app.UseAuthorization();
