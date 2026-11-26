@@ -14,8 +14,12 @@ public class XpSystemDbContext : DbContext
         modelBuilder.Entity<PlayerModel>(entity =>
         {
             entity.HasKey(p => p.Id);
-            entity.Property(p => p.Id).ValueGeneratedOnAdd(); // 数据库自增主键
+            entity.Property(p => p.Id).ValueGeneratedOnAdd();
             entity.Property(p => p.Name).IsRequired().HasMaxLength(100);
+
+            // 阶段 3 新增的两行，必须在 lambda 里面
+            entity.Property(p => p.UserId).IsRequired().HasMaxLength(64);
+            entity.HasIndex(p => p.UserId);
         });
     }
 }

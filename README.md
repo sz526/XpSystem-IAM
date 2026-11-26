@@ -38,3 +38,9 @@ Direct host ports (kept for debugging): API `8080`, pgAdmin `5051`, PostgreSQL `
 ```powershell
 dotnet test
 ```
+
+
+
+
+
+The container cannot resolve `*.localhost` (the resolver maps it to loopback), so instead of a lazy `MetadataAddress` fetch we load the JWKS once at startup from the internal service URL and validate issuer/audience ourselves.

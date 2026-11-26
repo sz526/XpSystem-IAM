@@ -2,14 +2,22 @@
 
 namespace XpSystem.Tests;
 
+public class FakeCurrentUser : ICurrentUser
+{
+    public string Id { get; set; } = "test-user";
+}
+
 public class PlayerTests
 {
+    private static PlayerService CreateService(FakePlayerRepository repo, FakeCurrentUser user)
+        => new(repo, user);
+
     [Fact]
     public void CreatePlayer_ShouldInitializeWithUniqueIdLevelOneAndZeroXp()
     {
-        //var service = new PlayerService();
-        var repository = new FakePlayerRepository();
-        var service = new PlayerService(repository);
+        var repo = new FakePlayerRepository();
+        var user = new FakeCurrentUser();
+        var service = CreateService(repo, user);
 
         var player1 = service.CreatePlayer("Hero");
         var player2 = service.CreatePlayer("Mage");
@@ -18,48 +26,52 @@ public class PlayerTests
         Assert.Equal(2, player2.Id);
         Assert.Equal(1, player1.Level);
         Assert.Equal(0, player1.Xp);
+        Assert.Equal("test-user", player1.UserId);
     }
+
     [Fact]
     public void GainXp_SpecificPlayerId_ShouldIncreaseXpAndLevelUp()
     {
-        // Arrange
-        var repository = new FakePlayerRepository();
-        var service = new PlayerService(repository);
+        var repo = new FakePlayerRepository();
+        var user = new FakeCurrentUser();
+        var service = CreateService(repo, user);
         var player = service.CreatePlayer("Hero");
-        // Act
+
         service.GainXp(player.Id, 40);
         Assert.Equal(40, player.Xp);
 
-        // assert that the player levels up correctly when XP reaches 100
-        service.GainXp(player.Id, 60); // total 100
+        service.GainXp(player.Id, 60);
         Assert.Equal(2, player.Level);
         Assert.Equal(0, player.Xp);
     }
 
     [Fact]
-    public void GetAllPlayers_ShouldReturnAllStoredPlayers()
+    public void GetMyPlayers_ShouldReturnOnlyCurrentUsersPlayers()
     {
-        var repository = new FakePlayerRepository();
-        var service = new PlayerService(repository);
-        service.CreatePlayer("Hero");
-        service.CreatePlayer("Mage");
+        var repo = new FakePlayerRepository();
+        var alice = new FakeCurrentUser { Id = "alice-sub" };
+        var bob = new FakeCurrentUser { Id = "bob-sub" };
 
-        var allPlayers = service.GetAllPlayers();
+        var aliceService = CreateService(repo, alice);
+        var bobService = CreateService(repo, bob);
 
-        Assert.Equal(2, allPlayers.Count);
+        aliceService.CreatePlayer("Hero");
+        aliceService.CreatePlayer("Mage");
+        bobService.CreatePlayer("Thief");
+
+        Assert.Equal(2, aliceService.GetMyPlayers().Count);
+        Assert.Single(bobService.GetMyPlayers());
     }
+
     [Fact]
     public void GainXp_NegativeAmount_ShouldThrowArgumentOutOfRangeException()
     {
-        var repository = new FakePlayerRepository();
-        var service = new PlayerService(repository);
+        var repo = new FakePlayerRepository();
+        var user = new FakeCurrentUser();
+        var service = CreateService(repo, user);
         var player = service.CreatePlayer("Hero");
 
-        var exception = Assert.Throws<ArgumentOutOfRangeException>(() =>
-            service.GainXp(player.Id, -50));
-
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(() => service.GainXp(player.Id, -50));
         Assert.Contains("amount", exception.Message);
     }
-
-
 }

@@ -1,15 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using XpSystem;
 using XpSystem.Api.Dtos;
-using Microsoft.AspNetCore.Authorization;
-
 
 namespace XpSystem.Api.Controllers;
 
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-
 public class PlayersController : ControllerBase
 {
     private readonly PlayerService _service;
@@ -22,12 +20,15 @@ public class PlayersController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest("name is required");
 
-        var player = _service.CreatePlayer(request.Name);
-        return Ok(player);
+        return Ok(_service.CreatePlayer(request.Name));
     }
 
     [HttpGet]
-    public IActionResult GetAll() => Ok(_service.GetAllPlayers());
+    public IActionResult GetMine() => Ok(_service.GetMyPlayers());
+
+    [HttpGet("{id:int}")]
+    public IActionResult GetOne(int id)
+        => _service.GetPlayer(id) is { } player ? Ok(player) : NotFound();
 
     [HttpPost("{id:int}/xp")]
     public IActionResult GainXp(int id, [FromBody] GainXpRequest request)
@@ -38,6 +39,17 @@ public class PlayersController : ControllerBase
             return NoContent();
         }
         catch (ArgumentOutOfRangeException) { return BadRequest("amount must be >= 0"); }
+        catch (InvalidOperationException) { return NotFound(); }
+    }
+
+    [HttpDelete("{id:int}")]
+    public IActionResult Delete(int id)
+    {
+        try
+        {
+            _service.DeletePlayer(id);
+            return NoContent();
+        }
         catch (InvalidOperationException) { return NotFound(); }
     }
 }

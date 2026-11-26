@@ -1,6 +1,25 @@
 services:
+  # ---------- Traefik (Ingress / Reverse Proxy) ----------
+  traefik:
+    image: traefik:v3
+    restart: always
+    ports:
+      - "80:80"
+      - "8081:8080"   # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    networks:
+      default:
+        ipv4_address: 172.28.0.10
+    depends_on:
+      - api
+      - pgadmin
+      - keycloak
+
   # ---------- Keycloak (Identity Provider) ----------
-   # ---------- Keycloak (Identity Provider) ----------
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
     restart: always
@@ -21,23 +40,6 @@ services:
       - "traefik.http.routers.keycloak.entrypoints=web"
       - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
 
-  # ---------- Traefik (Ingress / Reverse Proxy) ----------
-  traefik:
-    image: traefik:v3
-    restart: always 
-    ports:
-      - "80:80"
-      - "8081:8080"   # Traefik dashboard
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik.yml:/etc/traefik/traefik.yml:ro
-    command:
-      - --configFile=/etc/traefik/traefik.yml
-    depends_on:
-      - api
-      - pgadmin
-      - keycloak
-
   # ---------- API ----------
   api:
     build:
@@ -50,8 +52,10 @@ services:
       - Keycloak__MetadataAddress=http://keycloak:8080/realms/xpsystem/.well-known/openid-configuration
       - Keycloak__Issuer=http://keycloak.localhost/realms/xpsystem
       - Keycloak__Audience=xp-api
+      - Keycloak__JwksAddress=http://keycloak:8080/realms/xpsystem/protocol/openid-connect/certs
 
-
+    extra_hosts:
+      - "keycloak.localhost:172.28.0.10"
     ports:
       - "8080:8080"
     depends_on:
@@ -104,6 +108,12 @@ services:
       - "traefik.http.routers.pgadmin.rule=Host(`pgadmin.localhost`)"
       - "traefik.http.routers.pgadmin.entrypoints=web"
       - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
 
 volumes:
   pgdata:
