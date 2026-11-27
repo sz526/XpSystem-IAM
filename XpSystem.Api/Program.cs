@@ -1,36 +1,16 @@
-using Microsoft.EntityFrameworkCore;
-using Scalar.AspNetCore;
-using XpSystem;
-using XpSystem.Api.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Scalar.AspNetCore;
+using XpSystem;
 using XpSystem.Api.Auth;
-
-
+using XpSystem.Api.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
-// ---- Keycloak / JWT ----
-// var keycloak = builder.Configuration.GetSection("Keycloak");
-
-// builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-//     .AddJwtBearer(options =>
-//     {
-//         options.MetadataAddress = keycloak["MetadataAddress"]!;
-//         options.RequireHttpsMetadata = false;   // 本地走 http
-//         options.MapInboundClaims = false;       // 保住 "sub" 这个 claim 名
-
-//         options.TokenValidationParameters = new TokenValidationParameters
-//         {
-//             ValidateIssuer = true,
-//             ValidIssuer = keycloak["Issuer"]!,
-//             ValidateAudience = true,
-//             ValidAudience = keycloak["Audience"]!,
-//             NameClaimType = "preferred_username"
-//         };
-//     });
 
 // ---- Keycloak / JWT ----
 var keycloak = builder.Configuration.GetSection("Keycloak");
@@ -71,20 +51,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = keycloak["Audience"]!,
             ValidateLifetime = true,
             IssuerSigningKeys = signingKeys,
-            NameClaimType = "preferred_username"
+            NameClaimType = "preferred_username",
+            RoleClaimType = "roles"
         };
     });
 
-
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Admin", policy => policy.RequireRole("admin"));
+});
 
 builder.Services.AddHealthChecks();
 
 // OpenAPI document + Scalar UI
 builder.Services.AddOpenApi(options =>
 {
-    var issuer = keycloak["Issuer"]!;   // http://keycloak.localhost/realms/xpsystem
-
+    var issuer = keycloak["Issuer"]!;
     options.AddDocumentTransformer((document, context, cancellationToken) =>
     {
         document.Components ??= new OpenApiComponents();
@@ -108,7 +90,6 @@ builder.Services.AddOpenApi(options =>
             }
         };
 
-        // 让所有端点默认要求这个 scheme，Scalar 才会自动带 Authorization 头
         document.Security =
         [
             new OpenApiSecurityRequirement
@@ -121,7 +102,6 @@ builder.Services.AddOpenApi(options =>
     });
 });
 
-
 // EF Core + PostgreSQL
 builder.Services.AddDbContext<XpSystemDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
@@ -129,10 +109,7 @@ builder.Services.AddDbContext<XpSystemDbContext>(options =>
 builder.Services.AddScoped<IPlayerRepository, EfPlayerRepository>();
 builder.Services.AddScoped<PlayerService>();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
-
 builder.Services.AddHttpContextAccessor();
-
-
 
 var app = builder.Build();
 
@@ -142,8 +119,7 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
 }
 
-app.MapOpenApi();            // OpenAPI 文档: /openapi/v1.json
-//app.MapScalarApiReference(); // Scalar UI:    /scalar/v1
+app.MapOpenApi();
 app.MapScalarApiReference(options =>
 {
     options
@@ -157,10 +133,8 @@ app.MapScalarApiReference(options =>
         });
 });
 
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 app.MapHealthChecks("/health");
 
